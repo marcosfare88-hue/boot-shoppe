@@ -33,7 +33,7 @@ VERIFY_TOKEN   = "bootshoppetoken"     # mesmo token cadastrado no Meta Develope
 AUTO_REPLY_MSG = (
     "Oi! Que otimo que voce se interessou! 😍\n\n"
     "Aqui esta o link do produto pra voce garantir o seu agora: 👇\n\n"
-    "https://s.shopee.com.br/3g1LI7fqAc\n\n"
+    "https://s.shopee.com.br/qhA641KYD\n\n"
     "Compra segura pela Shopee! 🛍️✅\n"
     "Qualquer duvida e so chamar aqui no Direct! 💛"
 )
@@ -223,7 +223,7 @@ def publicar_carrossel(image_urls: list, caption: str) -> dict:
 def exemplo_publicar_post():
     resultado = publicar_post(
         image_url="https://link-publico-da-sua-imagem.jpg",
-        caption="Confira nosso produto! 🥾 https://s.shopee.com.br/3g1LI7fqAc"
+        caption="Confira nosso produto! 🥾 https://s.shopee.com.br/qhA641KYD"
     )
     print("Post publicado:", resultado)
 
@@ -235,7 +235,7 @@ def exemplo_publicar_carrossel():
             "https://link-imagem-2.jpg",
             "https://link-imagem-3.jpg",
         ],
-        caption="Veja nosso catalogo! 🥾 https://s.shopee.com.br/3g1LI7fqAc"
+        caption="Veja nosso catalogo! 🥾 https://s.shopee.com.br/qhA641KYD"
     )
     print("Carrossel publicado:", resultado)
 

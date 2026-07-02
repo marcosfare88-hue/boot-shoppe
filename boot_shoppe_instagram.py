@@ -41,7 +41,7 @@ def _normalize(text: str) -> str:
 # ─────────────────────────────────────────────
 
 ACCESS_TOKEN   = os.environ["IG_ACCESS_TOKEN"]   # defina isso nas variaveis de ambiente do host (Railway/Render), nunca no codigo
-IG_USER_ID     = os.environ.get("IG_USER_ID", "17841470360881988")   # seu ID de usuario do Instagram
+IG_USER_ID     = os.environ.get("IG_USER_ID", "27095478893447950")   # seu ID de usuario do Instagram (@ganhosonlinems)
 VERIFY_TOKEN   = os.environ.get("IG_VERIFY_TOKEN", "bootshoppetoken")     # mesmo token cadastrado no Meta Developer
 
 # Mensagem enviada automaticamente no DM quando o comentario tem intencao de compra

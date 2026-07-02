@@ -44,17 +44,24 @@ ACCESS_TOKEN   = os.environ["IG_ACCESS_TOKEN"]   # defina isso nas variaveis de 
 IG_USER_ID     = os.environ.get("IG_USER_ID", "27095478893447950")   # seu ID de usuario do Instagram (@ganhosonlinems)
 VERIFY_TOKEN   = os.environ.get("IG_VERIFY_TOKEN", "bootshoppetoken")     # mesmo token cadastrado no Meta Developer
 
-# Link do produto (usado no botao clicavel do DM)
-PRODUCT_URL = "https://s.shopee.com.br/qhA641KYD"
+# Produtos por post (media_id do post -> dados do produto).
+# O media_id de cada post aparece nos logs assim que alguem comenta nele
+# (procure por "media_id=" no log). Adicione uma entrada nova aqui pra
+# cada post/produto diferente que voce for divulgar.
+PRODUCTS = {
+    # "media_id_do_post": {
+    #     "nome":       "Nome do produto",
+    #     "imagem_url": "https://link-publico-da-foto.jpg",  # opcional
+    #     "link":       "https://s.shopee.com.br/xxxxx",
+    # },
+}
 
-# Texto enviado antes do botao com o link
-AUTO_REPLY_MSG = (
-    "Oi! Que otimo que voce se interessou! 😍\n\n"
-    "Aqui esta o link do produto pra voce garantir o seu agora, "
-    "so tocar no botao abaixo: 👇\n\n"
-    "Compra segura pela Shopee! 🛍️✅\n"
-    "Qualquer duvida e so chamar aqui no Direct! 💛"
-)
+# Usado quando o post comentado nao esta cadastrado em PRODUCTS acima
+DEFAULT_PRODUCT = {
+    "nome":       "produto",
+    "imagem_url": None,
+    "link":       "https://s.shopee.com.br/qhA641KYD",
+}
 
 # Palavras/frases que disparam o auto-reply (case-insensitive).
 # Basta o comentario conter QUALQUER uma delas.
@@ -125,14 +132,15 @@ def webhook_receive():
             value = change.get("value", {})
             comment_text = value.get("text", "")
             comment_id   = value.get("id", "")
+            media_id     = value.get("media", {}).get("id", "")
 
-            log.info(f"Comentario recebido: '{comment_text}' (id={comment_id})")
+            log.info(f"Comentario recebido: '{comment_text}' (id={comment_id}, media_id={media_id})")
 
             # Dispara auto-reply se contem qualquer uma das palavras-chave
             texto_normalizado = _normalize(comment_text)
             if comment_id and any(_normalize(kw) in texto_normalizado for kw in TRIGGER_WORDS):
                 log.info(f"Palavra-chave detectada. Enviando DM para comentario {comment_id}...")
-                resultado = enviar_dm_comentario(comment_id)
+                resultado = enviar_dm_comentario(comment_id, media_id)
                 log.info(f"DM enviada: {resultado}")
 
     return "ok", 200
@@ -153,41 +161,62 @@ def _enviar_mensagem(recipient: dict, message: dict) -> dict:
     return resp.json()
 
 
-def enviar_dm_comentario(comment_id: str) -> dict:
+def enviar_dm_comentario(comment_id: str, media_id: str = "") -> dict:
     """
-    Envia duas mensagens privadas em resposta a um comentario:
-    1. Texto explicando o interesse
-    2. Botao clicavel com o link do produto (garante link tocavel de
+    Envia mensagens privadas em resposta a um comentario, com o produto
+    certo pro post que foi comentado:
+    1. Texto agradecendo o interesse (menciona o nome do produto)
+    2. Foto do produto (se tiver imagem_url cadastrada em PRODUCTS)
+    3. Botao clicavel com o link do produto (garante link tocavel de
        verdade, em vez de depender do Instagram detectar uma URL solta
        no texto)
     Requer permissao instagram_manage_messages no app Meta.
     """
-    resultado_texto = _enviar_mensagem({"comment_id": comment_id}, {"text": AUTO_REPLY_MSG})
+    produto = PRODUCTS.get(media_id, DEFAULT_PRODUCT)
+
+    texto = (
+        f"Oi! Que otimo que voce se interessou {'no ' + produto['nome'] if produto['nome'] != 'produto' else 'nele'}! 😍\n\n"
+        "Vou te mostrar direitinho e deixar o link logo abaixo pra "
+        "voce garantir o seu agora:\n\n"
+        "Compra segura pela Shopee! 🛍️✅\n"
+        "Qualquer duvida e so chamar aqui no Direct! 💛"
+    )
+
+    resultado_texto = _enviar_mensagem({"comment_id": comment_id}, {"text": texto})
 
     # comment_id so pode ser usado UMA VEZ pra iniciar a conversa.
-    # Pra mandar a segunda mensagem (o botao) na mesma thread, precisa
-    # usar o recipient_id (PSID) que veio na resposta da primeira msg.
+    # Pra mandar as proximas mensagens (foto, botao) na mesma thread,
+    # precisa usar o recipient_id (PSID) que veio na resposta da primeira.
     recipient_id = resultado_texto.get("recipient_id")
     if not recipient_id:
-        log.error(f"Nao recebi recipient_id na primeira mensagem, pulando botao: {resultado_texto}")
-        return {"texto": resultado_texto, "botao": None}
+        log.error(f"Nao recebi recipient_id na primeira mensagem, pulando o resto: {resultado_texto}")
+        return {"texto": resultado_texto, "foto": None, "botao": None}
+
+    resultado_foto = None
+    if produto.get("imagem_url"):
+        resultado_foto = _enviar_mensagem({"id": recipient_id}, {
+            "attachment": {
+                "type": "image",
+                "payload": {"url": produto["imagem_url"], "is_reusable": True}
+            }
+        })
 
     resultado_botao = _enviar_mensagem({"id": recipient_id}, {
         "attachment": {
             "type": "template",
             "payload": {
                 "template_type": "button",
-                "text": "Toca no botao pra ver o produto na Shopee 👇",
+                "text": f"Toca no botao pra ver {produto['nome']} na Shopee 👇",
                 "buttons": [{
                     "type": "web_url",
-                    "url": PRODUCT_URL,
+                    "url": produto["link"],
                     "title": "Ver produto na Shopee"
                 }]
             }
         }
     })
 
-    return {"texto": resultado_texto, "botao": resultado_botao}
+    return {"texto": resultado_texto, "foto": resultado_foto, "botao": resultado_botao}
 
 
 def publicar_post(image_url: str, caption: str) -> dict:

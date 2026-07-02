@@ -44,11 +44,14 @@ ACCESS_TOKEN   = os.environ["IG_ACCESS_TOKEN"]   # defina isso nas variaveis de 
 IG_USER_ID     = os.environ.get("IG_USER_ID", "17841470360881988")   # seu ID de usuario do Instagram
 VERIFY_TOKEN   = os.environ.get("IG_VERIFY_TOKEN", "bootshoppetoken")     # mesmo token cadastrado no Meta Developer
 
-# Mensagem enviada automaticamente no DM ao detectar "eu quero" no comentario
+# Mensagem enviada automaticamente no DM quando o comentario tem intencao de compra
 AUTO_REPLY_MSG = (
     "Oi! Que otimo que voce se interessou! 😍\n\n"
     "Aqui esta o link do produto pra voce garantir o seu agora: 👇\n\n"
     "https://s.shopee.com.br/qhA641KYD\n\n"
+    "⚠️ Se o link nao abrir direto (a Shopee as vezes bloqueia o navegador "
+    "do proprio Instagram): toca nos 3 pontinhos ou copia o link e cola no "
+    "Chrome/Safari.\n\n"
     "Compra segura pela Shopee! 🛍️✅\n"
     "Qualquer duvida e so chamar aqui no Direct! 💛"
 )

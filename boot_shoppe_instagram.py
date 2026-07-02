@@ -162,14 +162,17 @@ def enviar_dm_comentario(comment_id: str) -> dict:
        no texto)
     Requer permissao instagram_manage_messages no app Meta.
     """
-    recipient = {"comment_id": comment_id}
+    resultado_texto = _enviar_mensagem({"comment_id": comment_id}, {"text": AUTO_REPLY_MSG})
 
-    resultado_texto = _enviar_mensagem(recipient, {"text": AUTO_REPLY_MSG})
+    # comment_id so pode ser usado UMA VEZ pra iniciar a conversa.
+    # Pra mandar a segunda mensagem (o botao) na mesma thread, precisa
+    # usar o recipient_id (PSID) que veio na resposta da primeira msg.
+    recipient_id = resultado_texto.get("recipient_id")
+    if not recipient_id:
+        log.error(f"Nao recebi recipient_id na primeira mensagem, pulando botao: {resultado_texto}")
+        return {"texto": resultado_texto, "botao": None}
 
-    # Depois de responder por comment_id uma vez, a conversa vira uma
-    # thread normal de DM, entao usamos o mesmo comment_id de novo - a
-    # API do Instagram aceita reenviar pro mesmo comentario.
-    resultado_botao = _enviar_mensagem(recipient, {
+    resultado_botao = _enviar_mensagem({"id": recipient_id}, {
         "attachment": {
             "type": "template",
             "payload": {

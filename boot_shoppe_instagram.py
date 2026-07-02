@@ -49,6 +49,11 @@ VERIFY_TOKEN   = os.environ.get("IG_VERIFY_TOKEN", "bootshoppetoken")     # mesm
 # (procure por "media_id=" no log). Adicione uma entrada nova aqui pra
 # cada post/produto diferente que voce for divulgar.
 PRODUCTS = {
+    "18183735790400606": {
+        "nome":       "Bolsa de Ombro Feminina",
+        "imagem_url": "https://raw.githubusercontent.com/marcosfare88-hue/boot-shoppe/main/assets/bolsa_romantic_crown.jpg",
+        "link":       "https://s.shopee.com.br/5LA07sh1rC?share_channel_code=1",
+    },
     # "media_id_do_post": {
     #     "nome":       "Nome do produto",
     #     "imagem_url": "https://link-publico-da-foto.jpg",  # opcional

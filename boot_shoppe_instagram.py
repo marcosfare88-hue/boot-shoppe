@@ -177,33 +177,50 @@ def _enviar_mensagem(recipient: dict, message: dict) -> dict:
 def enviar_dm_comentario(comment_id: str, media_id: str = "") -> dict:
     """
     Envia mensagens privadas em resposta a um comentario, com o produto
-    certo pro post que foi comentado:
-    1. Texto agradecendo o interesse (menciona o nome do produto)
-    2. Foto do produto (se tiver imagem_url cadastrada em PRODUCTS)
-    3. Botao clicavel com o link do produto (garante link tocavel de
-       verdade, em vez de depender do Instagram detectar uma URL solta
-       no texto)
-    Requer permissao instagram_manage_messages no app Meta.
+    certo pro post que foi comentado.
+
+    IMPORTANTE: pra quem nunca trocou mensagem com a conta antes, o
+    Instagram so garante a entrega de UMA mensagem via resposta a
+    comentario (comment_id) - as seguintes podem falhar com "outside of
+    allowed window" (isso so funciona sem erro se ja existir uma
+    conversa previa com aquela pessoa). Por isso o BOTAO com o link vai
+    primeiro (e' o que precisa chegar sempre); texto explicativo e foto
+    do produto sao um bonus best-effort mandado depois.
     """
     produto = PRODUCTS.get(media_id, DEFAULT_PRODUCT)
 
-    texto = (
-        f"Oi! Que otimo que voce se interessou {'no ' + produto['nome'] if produto['nome'] != 'produto' else 'nele'}! 😍\n\n"
-        "Vou te mostrar direitinho e deixar o link logo abaixo pra "
-        "voce garantir o seu agora:\n\n"
-        "Compra segura pela Shopee! 🛍️✅\n"
-        "Qualquer duvida e so chamar aqui no Direct! 💛"
-    )
+    # 1. Botao com o link - PRIMEIRO e via comment_id, pra garantir a entrega.
+    resultado_botao = _enviar_mensagem({"comment_id": comment_id}, {
+        "attachment": {
+            "type": "template",
+            "payload": {
+                "template_type": "button",
+                "text": (
+                    f"Oi! Que otimo que voce se interessou "
+                    f"{'no ' + produto['nome'] if produto['nome'] != 'produto' else 'nele'}! 😍\n\n"
+                    f"Toca no botao pra ver na Shopee (compra segura ✅):"
+                ),
+                "buttons": [{
+                    "type": "web_url",
+                    "url": produto["link"],
+                    "title": "Ver produto na Shopee"
+                }]
+            }
+        }
+    })
 
-    resultado_texto = _enviar_mensagem({"comment_id": comment_id}, {"text": texto})
-
-    # comment_id so pode ser usado UMA VEZ pra iniciar a conversa.
-    # Pra mandar as proximas mensagens (foto, botao) na mesma thread,
-    # precisa usar o recipient_id (PSID) que veio na resposta da primeira.
-    recipient_id = resultado_texto.get("recipient_id")
+    recipient_id = resultado_botao.get("recipient_id")
     if not recipient_id:
-        log.error(f"Nao recebi recipient_id na primeira mensagem, pulando o resto: {resultado_texto}")
-        return {"texto": resultado_texto, "foto": None, "botao": None}
+        log.error(f"Botao (mensagem principal) falhou, sem recipient_id: {resultado_botao}")
+        return {"botao": resultado_botao, "texto": None, "foto": None}
+
+    # 2. Texto e foto - bonus best-effort. Podem falhar em conversas novas
+    # (janela de entrega), mas o link essencial ja foi garantido acima.
+    resultado_texto = _enviar_mensagem({"id": recipient_id}, {
+        "text": (
+            "Qualquer duvida e so chamar aqui no Direct! 💛"
+        )
+    })
 
     resultado_foto = None
     if produto.get("imagem_url"):
@@ -213,21 +230,6 @@ def enviar_dm_comentario(comment_id: str, media_id: str = "") -> dict:
                 "payload": {"url": produto["imagem_url"], "is_reusable": True}
             }
         })
-
-    resultado_botao = _enviar_mensagem({"id": recipient_id}, {
-        "attachment": {
-            "type": "template",
-            "payload": {
-                "template_type": "button",
-                "text": f"Toca no botao pra ver {produto['nome']} na Shopee 👇",
-                "buttons": [{
-                    "type": "web_url",
-                    "url": produto["link"],
-                    "title": "Ver produto na Shopee"
-                }]
-            }
-        }
-    })
 
     return {"texto": resultado_texto, "foto": resultado_foto, "botao": resultado_botao}
 

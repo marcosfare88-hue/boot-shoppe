@@ -44,14 +44,14 @@ ACCESS_TOKEN   = os.environ["IG_ACCESS_TOKEN"]   # defina isso nas variaveis de 
 IG_USER_ID     = os.environ.get("IG_USER_ID", "27095478893447950")   # seu ID de usuario do Instagram (@ganhosonlinems)
 VERIFY_TOKEN   = os.environ.get("IG_VERIFY_TOKEN", "bootshoppetoken")     # mesmo token cadastrado no Meta Developer
 
-# Mensagem enviada automaticamente no DM quando o comentario tem intencao de compra
+# Link do produto (usado no botao clicavel do DM)
+PRODUCT_URL = "https://s.shopee.com.br/qhA641KYD"
+
+# Texto enviado antes do botao com o link
 AUTO_REPLY_MSG = (
     "Oi! Que otimo que voce se interessou! 😍\n\n"
-    "Aqui esta o link do produto pra voce garantir o seu agora: 👇\n\n"
-    "https://s.shopee.com.br/qhA641KYD\n\n"
-    "⚠️ Se o link nao abrir direto (a Shopee as vezes bloqueia o navegador "
-    "do proprio Instagram): toca nos 3 pontinhos ou copia o link e cola no "
-    "Chrome/Safari.\n\n"
+    "Aqui esta o link do produto pra voce garantir o seu agora, "
+    "so tocar no botao abaixo: 👇\n\n"
     "Compra segura pela Shopee! 🛍️✅\n"
     "Qualquer duvida e so chamar aqui no Direct! 💛"
 )
@@ -142,23 +142,49 @@ def webhook_receive():
 # FUNCOES DE INSTAGRAM
 # ─────────────────────────────────────────────
 
-def enviar_dm_comentario(comment_id: str) -> dict:
-    """
-    Envia uma mensagem privada em resposta a um comentario.
-    Requer permissao instagram_manage_messages no app Meta.
-    """
+def _enviar_mensagem(recipient: dict, message: dict) -> dict:
     url = f"{BASE_URL}/{IG_USER_ID}/messages"
-    payload = {
-        "recipient": {"comment_id": comment_id},
-        "message":   {"text": AUTO_REPLY_MSG}
-    }
     resp = requests.post(
         url,
         params={"access_token": ACCESS_TOKEN},
-        json=payload,
+        json={"recipient": recipient, "message": message},
         headers={"Content-Type": "application/json"}
     )
     return resp.json()
+
+
+def enviar_dm_comentario(comment_id: str) -> dict:
+    """
+    Envia duas mensagens privadas em resposta a um comentario:
+    1. Texto explicando o interesse
+    2. Botao clicavel com o link do produto (garante link tocavel de
+       verdade, em vez de depender do Instagram detectar uma URL solta
+       no texto)
+    Requer permissao instagram_manage_messages no app Meta.
+    """
+    recipient = {"comment_id": comment_id}
+
+    resultado_texto = _enviar_mensagem(recipient, {"text": AUTO_REPLY_MSG})
+
+    # Depois de responder por comment_id uma vez, a conversa vira uma
+    # thread normal de DM, entao usamos o mesmo comment_id de novo - a
+    # API do Instagram aceita reenviar pro mesmo comentario.
+    resultado_botao = _enviar_mensagem(recipient, {
+        "attachment": {
+            "type": "template",
+            "payload": {
+                "template_type": "button",
+                "text": "Toca no botao pra ver o produto na Shopee 👇",
+                "buttons": [{
+                    "type": "web_url",
+                    "url": PRODUCT_URL,
+                    "title": "Ver produto na Shopee"
+                }]
+            }
+        }
+    })
+
+    return {"texto": resultado_texto, "botao": resultado_botao}
 
 
 def publicar_post(image_url: str, caption: str) -> dict:

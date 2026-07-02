@@ -10,6 +10,11 @@ Como rodar:
   pip install flask requests
   python boot_shoppe_instagram.py
 
+Antes de rodar, defina a variavel de ambiente IG_ACCESS_TOKEN com o seu
+token do Instagram Graph API. NUNCA cole o token direto no codigo:
+  - Local: crie um arquivo .env (nao commitado) ou exporte no terminal
+  - Railway/Render: configure em Settings > Environment Variables
+
 Para receber webhooks do Instagram voce precisa de uma URL publica.
 Opcoes gratuitas: Railway (railway.app), Render (render.com), Replit (replit.com)
 Para testar localmente: ngrok (ngrok.com) -> ngrok http 5000
@@ -25,9 +30,9 @@ from flask import Flask, request, jsonify
 # CONFIGURACOES - edite aqui
 # ─────────────────────────────────────────────
 
-ACCESS_TOKEN   = "IGAAX8ym7NpzJBZAFpfZAmpqZAjFDclJBWDBnZA2U5SlZA2Y1psOHV6TzdrSmxRb2JtdlBkanZAIeVpBOEszRjVMQ0xMWWc4SjZAqVVFQWE9WN3ZAsVGpmWmxFeDFVRlc1LVVJYVRiX2NSbWFVMzZAULWpfY1dpTE1zRnFoRE1qaERpdDJmawZDZD"
-IG_USER_ID     = "17841470360881988"   # seu ID de usuario do Instagram
-VERIFY_TOKEN   = "bootshoppetoken"     # mesmo token cadastrado no Meta Developer
+ACCESS_TOKEN   = os.environ["IG_ACCESS_TOKEN"]   # defina isso nas variaveis de ambiente do host (Railway/Render), nunca no codigo
+IG_USER_ID     = os.environ.get("IG_USER_ID", "17841470360881988")   # seu ID de usuario do Instagram
+VERIFY_TOKEN   = os.environ.get("IG_VERIFY_TOKEN", "bootshoppetoken")     # mesmo token cadastrado no Meta Developer
 
 # Mensagem enviada automaticamente no DM ao detectar "eu quero" no comentario
 AUTO_REPLY_MSG = (

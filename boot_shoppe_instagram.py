@@ -23,8 +23,18 @@ Para testar localmente: ngrok (ngrok.com) -> ngrok http 5000
 import os
 import time
 import logging
+import unicodedata
 import requests
 from flask import Flask, request, jsonify
+
+
+def _normalize(text: str) -> str:
+    """minusculas e sem acentos, pra bater 'preco' com 'preço' etc."""
+    text = text.lower()
+    return "".join(
+        c for c in unicodedata.normalize("NFKD", text)
+        if not unicodedata.combining(c)
+    )
 
 # ─────────────────────────────────────────────
 # CONFIGURACOES - edite aqui
@@ -43,8 +53,28 @@ AUTO_REPLY_MSG = (
     "Qualquer duvida e so chamar aqui no Direct! 💛"
 )
 
-# Palavra-chave que dispara o auto-reply (case-insensitive)
-TRIGGER_WORD   = "eu quero"
+# Palavras/frases que disparam o auto-reply (case-insensitive).
+# Basta o comentario conter QUALQUER uma delas.
+TRIGGER_WORDS = [
+    "eu quero",
+    "quero comprar",
+    "quero um",
+    "quero uma",
+    "onde compro",
+    "onde compra",
+    "como compro",
+    "como compra",
+    "quanto custa",
+    "qual o preco",
+    "qual o valor",
+    "manda o link",
+    "manda link",
+    "qual o link",
+    "tem link",
+    "link por favor",
+    "onde encontro",
+    "onde acho",
+]
 
 # ─────────────────────────────────────────────
 # SETUP
@@ -95,8 +125,9 @@ def webhook_receive():
 
             log.info(f"Comentario recebido: '{comment_text}' (id={comment_id})")
 
-            # Dispara auto-reply se contem a palavra-chave
-            if TRIGGER_WORD in comment_text.lower() and comment_id:
+            # Dispara auto-reply se contem qualquer uma das palavras-chave
+            texto_normalizado = _normalize(comment_text)
+            if comment_id and any(_normalize(kw) in texto_normalizado for kw in TRIGGER_WORDS):
                 log.info(f"Palavra-chave detectada. Enviando DM para comentario {comment_id}...")
                 resultado = enviar_dm_comentario(comment_id)
                 log.info(f"DM enviada: {resultado}")

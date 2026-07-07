@@ -68,9 +68,9 @@ PRODUCTS = {
 
 # Usado quando o post comentado nao esta cadastrado em PRODUCTS acima
 DEFAULT_PRODUCT = {
-    "nome":       "produto",
-    "imagem_url": None,
-    "link":       "https://s.shopee.com.br/qhA641KYD",
+    "nome":       "Jogo de Lencol 400 Fios",
+    "imagem_url": "https://raw.githubusercontent.com/marcosfare88-hue/boot-shoppe/main/assets/lencol_400_fios.png",
+    "link":       "https://s.shopee.com.br/4LHZxQJscD",
 }
 
 # Palavras/frases que disparam o auto-reply (case-insensitive).

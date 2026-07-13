@@ -21,11 +21,11 @@ Para testar localmente: ngrok (ngrok.com) -> ngrok http 5000
 """
 
 import os
-import time
 import logging
 import unicodedata
-import requests
 from flask import Flask, request, jsonify
+
+from ig_api import IG_USER_ID, VERIFY_TOKEN_DEFAULT, enviar_mensagem
 
 
 def _normalize(text: str) -> str:
@@ -40,9 +40,7 @@ def _normalize(text: str) -> str:
 # CONFIGURACOES - edite aqui
 # ─────────────────────────────────────────────
 
-ACCESS_TOKEN   = os.environ["IG_ACCESS_TOKEN"]   # defina isso nas variaveis de ambiente do host (Railway/Render), nunca no codigo
-IG_USER_ID     = os.environ.get("IG_USER_ID", "27095478893447950")   # seu ID de usuario do Instagram (@ganhosonlinems)
-VERIFY_TOKEN   = os.environ.get("IG_VERIFY_TOKEN", "bootshoppetoken")     # mesmo token cadastrado no Meta Developer
+VERIFY_TOKEN = os.environ.get("IG_VERIFY_TOKEN", VERIFY_TOKEN_DEFAULT)     # mesmo token cadastrado no Meta Developer
 
 # Produtos por post (media_id do post -> dados do produto).
 # O media_id de cada post aparece nos logs assim que alguem comenta nele
@@ -112,7 +110,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger(__name__)
 
 app = Flask(__name__)
-BASE_URL = f"https://graph.instagram.com/v21.0"
 
 
 # ─────────────────────────────────────────────
@@ -165,19 +162,8 @@ def webhook_receive():
 
 
 # ─────────────────────────────────────────────
-# FUNCOES DE INSTAGRAM
+# FUNCOES DE INSTAGRAM (especificas do bot de DM)
 # ─────────────────────────────────────────────
-
-def _enviar_mensagem(recipient: dict, message: dict) -> dict:
-    url = f"{BASE_URL}/{IG_USER_ID}/messages"
-    resp = requests.post(
-        url,
-        params={"access_token": ACCESS_TOKEN},
-        json={"recipient": recipient, "message": message},
-        headers={"Content-Type": "application/json"}
-    )
-    return resp.json()
-
 
 def enviar_dm_comentario(comment_id: str, media_id: str = "") -> dict:
     """
@@ -195,7 +181,7 @@ def enviar_dm_comentario(comment_id: str, media_id: str = "") -> dict:
     produto = PRODUCTS.get(media_id, DEFAULT_PRODUCT)
 
     # 1. Botao com o link - PRIMEIRO e via comment_id, pra garantir a entrega.
-    resultado_botao = _enviar_mensagem({"comment_id": comment_id}, {
+    resultado_botao = enviar_mensagem({"comment_id": comment_id}, {
         "attachment": {
             "type": "template",
             "payload": {
@@ -221,7 +207,7 @@ def enviar_dm_comentario(comment_id: str, media_id: str = "") -> dict:
 
     # 2. Texto e foto - bonus best-effort. Podem falhar em conversas novas
     # (janela de entrega), mas o link essencial ja foi garantido acima.
-    resultado_texto = _enviar_mensagem({"id": recipient_id}, {
+    resultado_texto = enviar_mensagem({"id": recipient_id}, {
         "text": (
             "Qualquer duvida e so chamar aqui no Direct! 💛"
         )
@@ -229,7 +215,7 @@ def enviar_dm_comentario(comment_id: str, media_id: str = "") -> dict:
 
     resultado_foto = None
     if produto.get("imagem_url"):
-        resultado_foto = _enviar_mensagem({"id": recipient_id}, {
+        resultado_foto = enviar_mensagem({"id": recipient_id}, {
             "attachment": {
                 "type": "image",
                 "payload": {"url": produto["imagem_url"], "is_reusable": True}
@@ -239,134 +225,11 @@ def enviar_dm_comentario(comment_id: str, media_id: str = "") -> dict:
     return {"texto": resultado_texto, "foto": resultado_foto, "botao": resultado_botao}
 
 
-def publicar_post(image_url: str, caption: str) -> dict:
-    """
-    Publica um post de imagem simples no Instagram.
-
-    Parametros:
-        image_url  - URL publica da imagem (ex: link do Google Drive publico)
-        caption    - legenda do post
-
-    Retorna o resultado da publicacao.
-    """
-    # 1. Cria container de midia
-    log.info("Criando container de midia...")
-    resp = requests.post(
-        f"{BASE_URL}/{IG_USER_ID}/media",
-        params={"access_token": ACCESS_TOKEN},
-        json={"image_url": image_url, "caption": caption}
-    )
-    resultado = resp.json()
-    creation_id = resultado.get("id")
-    if not creation_id:
-        log.error(f"Erro ao criar container: {resultado}")
-        return resultado
-
-    # 2. Publica
-    log.info(f"Publicando container {creation_id}...")
-    resp2 = requests.post(
-        f"{BASE_URL}/{IG_USER_ID}/media_publish",
-        params={"access_token": ACCESS_TOKEN},
-        json={"creation_id": creation_id}
-    )
-    return resp2.json()
-
-
-def publicar_carrossel(image_urls: list, caption: str) -> dict:
-    """
-    Publica um carrossel (ate 10 imagens) no Instagram.
-
-    Parametros:
-        image_urls - lista de URLs publicas das imagens
-        caption    - legenda do carrossel (vai na primeira imagem)
-
-    Retorna o resultado da publicacao.
-    """
-    if not image_urls:
-        return {"error": "Nenhuma imagem fornecida"}
-    if len(image_urls) > 10:
-        image_urls = image_urls[:10]
-        log.warning("Carrossel limitado a 10 imagens.")
-
-    # 1. Cria container filho para cada imagem
-    child_ids = []
-    for i, url in enumerate(image_urls):
-        log.info(f"Criando container filho {i+1}/{len(image_urls)}...")
-        resp = requests.post(
-            f"{BASE_URL}/{IG_USER_ID}/media",
-            params={"access_token": ACCESS_TOKEN},
-            json={"image_url": url, "is_carousel_item": True}
-        )
-        child = resp.json()
-        child_id = child.get("id")
-        if not child_id:
-            log.error(f"Erro no filho {i+1}: {child}")
-            return child
-        child_ids.append(child_id)
-        time.sleep(1)  # evita rate limit
-
-    # 2. Cria container do carrossel
-    log.info("Criando container do carrossel...")
-    resp2 = requests.post(
-        f"{BASE_URL}/{IG_USER_ID}/media",
-        params={"access_token": ACCESS_TOKEN},
-        json={
-            "media_type": "CAROUSEL",
-            "children":   ",".join(child_ids),
-            "caption":    caption
-        }
-    )
-    carrossel = resp2.json()
-    creation_id = carrossel.get("id")
-    if not creation_id:
-        log.error(f"Erro ao criar carrossel: {carrossel}")
-        return carrossel
-
-    # 3. Publica
-    log.info(f"Publicando carrossel {creation_id}...")
-    time.sleep(2)  # aguarda processamento
-    resp3 = requests.post(
-        f"{BASE_URL}/{IG_USER_ID}/media_publish",
-        params={"access_token": ACCESS_TOKEN},
-        json={"creation_id": creation_id}
-    )
-    return resp3.json()
-
-
-# ─────────────────────────────────────────────
-# EXEMPLOS DE USO DIRETO (sem webhook)
-# ─────────────────────────────────────────────
-
-def exemplo_publicar_post():
-    resultado = publicar_post(
-        image_url="https://link-publico-da-sua-imagem.jpg",
-        caption="Confira nosso produto! 🥾 https://s.shopee.com.br/qhA641KYD"
-    )
-    print("Post publicado:", resultado)
-
-
-def exemplo_publicar_carrossel():
-    resultado = publicar_carrossel(
-        image_urls=[
-            "https://link-imagem-1.jpg",
-            "https://link-imagem-2.jpg",
-            "https://link-imagem-3.jpg",
-        ],
-        caption="Veja nosso catalogo! 🥾 https://s.shopee.com.br/qhA641KYD"
-    )
-    print("Carrossel publicado:", resultado)
-
-
 # ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────
 
 if __name__ == "__main__":
-    # Para testar publicacao direta, descomente uma linha abaixo:
-    # exemplo_publicar_post()
-    # exemplo_publicar_carrossel()
-
-    # Inicia o servidor webhook
     port = int(os.environ.get("PORT", 5000))
     log.info(f"Servidor rodando na porta {port}")
     log.info("Endpoint do webhook: /webhook")

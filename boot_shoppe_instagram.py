@@ -52,6 +52,11 @@ PRODUCTS = {
         "imagem_url": "https://raw.githubusercontent.com/marcosfare88-hue/boot-shoppe/main/assets/bolsa_romantic_crown.jpg",
         "link":       "https://s.shopee.com.br/5LA07sh1rC?share_channel_code=1",
     },
+    "18086614157544452": {  # post automatico de 13/07/2026 via daily_publish.py
+        "nome":       "Bolsa de Ombro Feminina",
+        "imagem_url": "https://raw.githubusercontent.com/marcosfare88-hue/boot-shoppe/main/assets/bolsa_romantic_crown.jpg",
+        "link":       "https://s.shopee.com.br/5LA07sh1rC?share_channel_code=1",
+    },
     "18093334985048597": {
         "nome":       "Jaqueta Feminina Puffer Forrada",
         "imagem_url": "https://raw.githubusercontent.com/marcosfare88-hue/boot-shoppe/main/assets/jaqueta_puffer.jpg",

@@ -25,7 +25,7 @@ import logging
 import unicodedata
 from flask import Flask, request, jsonify
 
-from ig_api import IG_USER_ID, VERIFY_TOKEN_DEFAULT, enviar_mensagem
+from ig_api import IG_USER_ID, VERIFY_TOKEN_DEFAULT, enviar_mensagem, produto_do_dia
 
 
 def _normalize(text: str) -> str:
@@ -183,7 +183,14 @@ def enviar_dm_comentario(comment_id: str, media_id: str = "") -> dict:
     primeiro (e' o que precisa chegar sempre); texto explicativo e foto
     do produto sao um bonus best-effort mandado depois.
     """
-    produto = PRODUCTS.get(media_id, DEFAULT_PRODUCT)
+    produto = PRODUCTS.get(media_id)
+    if produto is None:
+        try:
+            produto = produto_do_dia()
+        except Exception as e:
+            log.warning(f"Nao consegui resolver o produto do dia ({e}), usando DEFAULT_PRODUCT.")
+    if produto is None:
+        produto = DEFAULT_PRODUCT
 
     # 1. Botao com o link - PRIMEIRO e via comment_id, pra garantir a entrega.
     resultado_botao = enviar_mensagem({"comment_id": comment_id}, {

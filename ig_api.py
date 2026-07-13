@@ -32,6 +32,29 @@ def enviar_mensagem(recipient: dict, message: dict) -> dict:
     return resp.json()
 
 
+def _aguardar_container_pronto(creation_id: str, tentativas: int = 15, intervalo: float = 2.0) -> bool:
+    """
+    O Instagram processa a imagem de forma assincrona depois de criar o
+    container; publicar antes disso falha com 'Media ID is not available'
+    (codigo 9007). Espera o status_code virar FINISHED (ou ERROR) antes
+    de seguir pro media_publish.
+    """
+    for _ in range(tentativas):
+        resp = requests.get(
+            f"{BASE_URL}/{creation_id}",
+            params={"access_token": ACCESS_TOKEN, "fields": "status_code"}
+        )
+        status = resp.json().get("status_code")
+        if status == "FINISHED":
+            return True
+        if status == "ERROR":
+            log.error(f"Container {creation_id} entrou em ERROR durante o processamento.")
+            return False
+        time.sleep(intervalo)
+    log.error(f"Container {creation_id} nao ficou pronto a tempo (ultimo status: {status!r}).")
+    return False
+
+
 def publicar_post(image_url: str, caption: str) -> dict:
     """
     Publica um post de imagem simples no Instagram.
@@ -53,6 +76,9 @@ def publicar_post(image_url: str, caption: str) -> dict:
     if not creation_id:
         log.error(f"Erro ao criar container: {resultado}")
         return resultado
+
+    if not _aguardar_container_pronto(creation_id):
+        return {"error": "Container nao ficou pronto para publicacao", "creation_id": creation_id}
 
     log.info(f"Publicando container {creation_id}...")
     resp2 = requests.post(
@@ -111,8 +137,10 @@ def publicar_carrossel(image_urls: list, caption: str) -> dict:
         log.error(f"Erro ao criar carrossel: {carrossel}")
         return carrossel
 
+    if not _aguardar_container_pronto(creation_id):
+        return {"error": "Container do carrossel nao ficou pronto para publicacao", "creation_id": creation_id}
+
     log.info(f"Publicando carrossel {creation_id}...")
-    time.sleep(2)  # aguarda processamento
     resp3 = requests.post(
         f"{BASE_URL}/{IG_USER_ID}/media_publish",
         params={"access_token": ACCESS_TOKEN},

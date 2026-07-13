@@ -8,7 +8,10 @@ Config e funcoes de publicacao usadas tanto pelo app do webhook
 
 import os
 import time
+import json
 import logging
+from datetime import date
+from pathlib import Path
 
 import requests
 
@@ -19,6 +22,60 @@ IG_USER_ID   = os.environ.get("IG_USER_ID", "27095478893447950")  # @ganhosonlin
 BASE_URL     = "https://graph.instagram.com/v21.0"
 
 VERIFY_TOKEN_DEFAULT = "bootshoppetoken"  # mesmo valor usado antes; sobrescrito por IG_VERIFY_TOKEN no ambiente
+
+# ─────────────────────────────────────────────
+# Fila de posts diarios (compartilhada entre daily_publish.py e o bot de DM)
+# ─────────────────────────────────────────────
+
+QUEUE_PATH  = Path(__file__).parent / "content_queue.json"
+QUEUE_EPOCH = date(2026, 7, 13)  # dia 0 da rotacao; nao mude isso depois de ja estar rodando
+
+# Dados dos produtos por nome, usados tanto no PRODUCTS legado (media_id fixo)
+# quanto para resolver automaticamente o produto do post publicado hoje.
+CATALOGO_PRODUTOS = {
+    "Bolsa de Ombro Feminina": {
+        "nome":       "Bolsa de Ombro Feminina",
+        "imagem_url": "https://raw.githubusercontent.com/marcosfare88-hue/boot-shoppe/main/assets/bolsa_romantic_crown.jpg",
+        "link":       "https://s.shopee.com.br/5LA07sh1rC?share_channel_code=1",
+    },
+    "Jaqueta Feminina Puffer Forrada": {
+        "nome":       "Jaqueta Feminina Puffer Forrada",
+        "imagem_url": "https://raw.githubusercontent.com/marcosfare88-hue/boot-shoppe/main/assets/jaqueta_puffer.jpg",
+        "link":       "https://s.shopee.com.br/3ViP1lLSLN?share_channel_code=1",
+    },
+    "Jogo de Lencol 400 Fios": {
+        "nome":       "Jogo de Lencol 400 Fios",
+        "imagem_url": "https://raw.githubusercontent.com/marcosfare88-hue/boot-shoppe/main/assets/lencol_400_fios.png",
+        "link":       "https://s.shopee.com.br/4LHZxQJscD",
+    },
+}
+
+
+def carregar_fila() -> list:
+    with open(QUEUE_PATH, "r", encoding="utf-8") as f:
+        fila = json.load(f)
+    if not fila:
+        raise ValueError("content_queue.json esta vazio")
+    return fila
+
+
+def post_do_dia(hoje: date = None) -> dict:
+    hoje = hoje or date.today()
+    fila = carregar_fila()
+    indice = (hoje - QUEUE_EPOCH).days % len(fila)
+    return fila[indice]
+
+
+def produto_do_dia() -> dict:
+    """
+    Resolve qual produto deveria estar no post de hoje, usando a mesma
+    formula deterministica do daily_publish.py. Usado pelo bot de DM
+    quando recebe comentario num media_id que nao esta no PRODUCTS
+    legado (media_id fixo) - assim nao e preciso cadastrar manualmente
+    cada post automatico novo.
+    """
+    post = post_do_dia()
+    return CATALOGO_PRODUTOS.get(post.get("produto"))
 
 
 def enviar_mensagem(recipient: dict, message: dict) -> dict:
